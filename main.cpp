@@ -7,6 +7,7 @@ static void activate(GtkApplication * app)
 {
 	GtkApplicationWindow * app_window = GTK_APPLICATION_WINDOW(gtk_application_window_new(app));
 	gtk_window_set_title(GTK_WINDOW(app_window), "MyHomeworkSpace");
+	gtk_window_set_default_size(GTK_WINDOW(app_window), 1100, 600);
 
 	WebKitSettings * settings = webkit_settings_new();
 

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Exec=/usr/local/bin/myhomeworkspace
+Icon=/usr/share/myhomeworkspace/icon128.png
+Terminal=false
+
+Name=MyHomeworkSpace
+GenericName=Homework Planner
+Comment=A simple and easy-to-use homework planner.

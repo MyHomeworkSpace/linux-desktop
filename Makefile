@@ -18,5 +18,9 @@ myhomeworkspace: main.cpp
 
 install: myhomeworkspace
 	cp myhomeworkspace /usr/local/bin/myhomeworkspace
+
+	mkdir -p /usr/share/myhomeworkspace
+	cp icon128.png /usr/share/myhomeworkspace
+
 	desktop-file-install myhomeworkspace.desktop
 	update-desktop-database

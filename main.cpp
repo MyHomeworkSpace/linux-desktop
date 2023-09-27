@@ -12,6 +12,7 @@ static void activate(GtkApplication * app)
 	WebKitSettings * settings = webkit_settings_new();
 
 	webkit_settings_set_hardware_acceleration_policy(settings, WEBKIT_HARDWARE_ACCELERATION_POLICY_ALWAYS);
+	webkit_settings_set_enable_smooth_scrolling(settings, true);
 	webkit_settings_set_enable_developer_extras(settings, true);
 
 	WebKitWebView * web_view = WEBKIT_WEB_VIEW(webkit_web_view_new_with_settings(settings));

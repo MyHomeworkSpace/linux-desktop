@@ -21,6 +21,91 @@ static GtkWidget * create(WebKitWebView * web_view, WebKitNavigationAction * nav
 	return NULL;
 }
 
+static bool is_mhs_url(const gchar * uri)
+{
+	SoupURI * soup_uri = soup_uri_new(uri);
+
+	// we should intercept if it's NOT a mhs url
+	// a MHS url is defined as the scheme and host matching our constant
+	bool result = (
+		strcmp(soup_uri_get_scheme(soup_uri), URL_SCHEME) == 0 &&
+		strcmp(soup_uri_get_host(soup_uri), URL_HOST) == 0
+	);
+
+	soup_uri_free(soup_uri);
+
+	return result;
+}
+
+static void decide_policy_with_iframe_result(GObject * object, GAsyncResult * result, gpointer user_data)
+{
+	WebKitWebView * web_view = WEBKIT_WEB_VIEW(object);
+
+	WebKitNavigationPolicyDecision * navigation_decision = (WebKitNavigationPolicyDecision *) user_data;
+	WebKitPolicyDecision * decision = WEBKIT_POLICY_DECISION(navigation_decision);
+
+	WebKitNavigationAction * navigation_action = webkit_navigation_policy_decision_get_navigation_action(navigation_decision);
+	WebKitURIRequest * request = webkit_navigation_action_get_request(navigation_action);
+
+	const gchar * uri = webkit_uri_request_get_uri(request);
+
+	GError * error = NULL;
+	WebKitJavascriptResult * js_result = webkit_web_view_run_javascript_finish(web_view, result, &error);
+	if (!js_result)
+	{
+		g_warning("Error running iframe js: %s", error->message);
+		g_error_free(error);
+
+		webkit_policy_decision_use(decision);
+		g_object_unref(decision);
+		return;
+	}
+
+	JSCValue * value = webkit_javascript_result_get_js_value(js_result);
+
+	// the result is either
+	// * null (no iframes are navigating)
+	// * the destination url of an iframe that's navigating
+
+	bool is_iframe = false;
+
+	JSCValue * length_value = jsc_value_object_get_property(value, "length");
+	gint32 length = jsc_value_to_int32(length_value);
+	for (gint32 i = 0; i < length; i++)
+	{
+		JSCValue * iframe_url_value = jsc_value_object_get_property_at_index(value, i);
+		char * iframe_url = jsc_value_to_string(iframe_url_value);
+
+		if (strcmp(uri, iframe_url) == 0)
+		{
+			is_iframe = true;
+			break;
+		}
+	}
+
+	// at this point, either:
+	// * it's a NEW_WINDOW action
+	// * it's a NAVIGATION action off of mhs
+	// that means we always intercept it, unless it's an iframe
+
+	if (is_iframe)
+	{
+		// we found out that this is (probably) an iframe request
+		// let it go through
+		webkit_policy_decision_use(decision);
+		g_object_unref(decision);
+		return;
+	}
+
+	// ok, we should intercept it
+
+	gtk_show_uri_on_window(NULL, uri, GDK_CURRENT_TIME, NULL);
+
+	// block the action
+	webkit_policy_decision_ignore(decision);
+	g_object_unref(decision);
+}
+
 static gboolean decide_policy(WebKitWebView * web_view, WebKitPolicyDecision * decision, WebKitPolicyDecisionType type, gpointer user_data)
 {
 	if (type == WEBKIT_POLICY_DECISION_TYPE_NAVIGATION_ACTION || type == WEBKIT_POLICY_DECISION_TYPE_NEW_WINDOW_ACTION)
@@ -29,39 +114,38 @@ static gboolean decide_policy(WebKitWebView * web_view, WebKitPolicyDecision * d
 
 		WebKitNavigationAction * navigation_action = webkit_navigation_policy_decision_get_navigation_action(navigation_decision);
 		WebKitURIRequest * request = webkit_navigation_action_get_request(navigation_action);
-
 		const gchar * uri = webkit_uri_request_get_uri(request);
 
 		// TODO: should we allow opening another window of MHS, in the app? don't think this comes up naturally
-
-		// we intercept all NEW_WINDOW_ACTIONs
-		bool should_intercept = true;
-		if (type == WEBKIT_POLICY_DECISION_TYPE_NAVIGATION_ACTION)
+		if (type == WEBKIT_POLICY_DECISION_TYPE_NAVIGATION_ACTION && is_mhs_url(uri))
 		{
-			// if it's a NAVIGATION_ACTION, we only intercept if it's to a different domain
-			// (including other myhomework.space domains, such as the marketing site!)
-			SoupURI * soup_uri = soup_uri_new(uri);
-
-			// we should intercept if it's NOT a mhs url
-			// a MHS url is defined as the scheme and host matching our constant
-			should_intercept = !(
-				strcmp(soup_uri_get_scheme(soup_uri), URL_SCHEME) == 0 &&
-				strcmp(soup_uri_get_host(soup_uri), URL_HOST) == 0
-			);
-
-			soup_uri_free(soup_uri);
-		}
-
-		if (!should_intercept)
-		{
-			// just let it proceed normally
+			// fast path: let it through
 			return FALSE;
 		}
 
-		gtk_show_uri_on_window(NULL, uri, GDK_CURRENT_TIME, NULL);
+		// THIS IS A HACK TO WORK AROUND A WEBKITGTK BUG :(
+		// we want to always allow requests in iframes
+		// unfortunately, webkit_navigation_policy_decision_get_frame_name is broken (at least in webkitgtk 2.32.4)
+		// so, we do this horrible, horrible hack
+		// (run some js to find iframes and return their urls. then we can check if our navigation url matches an iframe)
+		// (of course, this could break if you click on a link that's the same as an existing iframe, but shhhhh)
+		webkit_web_view_run_javascript(
+			web_view,
+			"(function() {"
+				"let r = [];"
+				"let f = document.querySelectorAll('iframe');"
+				"for (let i = 0; i < f.length; i++) {"
+					"r.push(f[i].src);"
+				"}"
+				"return r;"
+			"})();",
+			NULL,
+			decide_policy_with_iframe_result,
+			navigation_decision
+		);
 
-		// block the action
-		webkit_policy_decision_ignore(decision);
+		// keep the decision alive while the javascript runs
+		g_object_ref(decision);
 		return TRUE;
 	}
 

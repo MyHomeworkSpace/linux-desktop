@@ -7,6 +7,20 @@
 
 #define CONFIG_FOLDER_NAME "myhomeworkspace"
 
+static GtkWidget * create(WebKitWebView * web_view, WebKitNavigationAction * navigation_action, gpointer user_data)
+{
+	// we got a request to open a new window
+	// decline
+
+	// TODO: should we allow opening another window of MHS, in the app? don't think this comes up naturally
+
+	WebKitURIRequest * request = webkit_navigation_action_get_request(navigation_action);
+	const gchar * uri = webkit_uri_request_get_uri(request);
+	gtk_show_uri_on_window(NULL, uri, GDK_CURRENT_TIME, NULL);
+
+	return NULL;
+}
+
 static gboolean decide_policy(WebKitWebView * web_view, WebKitPolicyDecision * decision, WebKitPolicyDecisionType type, gpointer user_data)
 {
 	if (type == WEBKIT_POLICY_DECISION_TYPE_NAVIGATION_ACTION || type == WEBKIT_POLICY_DECISION_TYPE_NEW_WINDOW_ACTION)
@@ -90,6 +104,7 @@ static void activate(GtkApplication * app)
 		"settings", settings,
 	NULL));
 
+	g_signal_connect(web_view, "create", G_CALLBACK(create), NULL);
 	g_signal_connect(web_view, "decide-policy", G_CALLBACK(decide_policy), NULL);
 
 	webkit_web_view_load_uri(web_view, URL);

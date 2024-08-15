@@ -207,7 +207,7 @@ int main(int argc, char * argv[])
 {
 	gtk_init(&argc, &argv);
 
-	GtkApplication * app = gtk_application_new("space.myhomework.desktop", G_APPLICATION_FLAGS_NONE);
+	GtkApplication * app = gtk_application_new("space.myhomework.desktop",  G_APPLICATION_DEFAULT_FLAGS);
 	g_signal_connect(app, "activate", G_CALLBACK(activate), nullptr);
 	g_application_run(G_APPLICATION(app), argc, argv);
 	g_object_unref(app);

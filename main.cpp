@@ -23,16 +23,16 @@ static GtkWidget * create(WebKitWebView * web_view, WebKitNavigationAction * nav
 
 static bool is_mhs_url(const gchar * uri)
 {
-	SoupURI * soup_uri = soup_uri_new(uri);
+	GUri * g_uri = g_uri_parse(uri, (GUriFlags) SOUP_HTTP_URI_FLAGS, NULL);
 
 	// we should intercept if it's NOT a mhs url
 	// a MHS url is defined as the scheme and host matching our constant
 	bool result = (
-		strcmp(soup_uri_get_scheme(soup_uri), URL_SCHEME) == 0 &&
-		strcmp(soup_uri_get_host(soup_uri), URL_HOST) == 0
+		strcmp(g_uri_get_scheme(g_uri), URL_SCHEME) == 0 &&
+		strcmp(g_uri_get_host(g_uri), URL_HOST) == 0
 	);
 
-	soup_uri_free(soup_uri);
+	g_uri_unref(g_uri);
 
 	return result;
 }

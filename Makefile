@@ -1,7 +1,7 @@
 FLAGS := -g -Wall
 
-WEBKITGTK_CFLAGS := `pkg-config --cflags webkit2gtk-4.0`
-WEBKITGTK_LIBS := `pkg-config --libs webkit2gtk-4.0`
+WEBKITGTK_CFLAGS := `pkg-config --cflags webkit2gtk-4.1`
+WEBKITGTK_LIBS := `pkg-config --libs webkit2gtk-4.1`
 GTK3_CFLAGS := `pkg-config --cflags gtk+-3.0`
 GTK3_LIBS := `pkg-config --libs gtk+-3.0`
 
